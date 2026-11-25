@@ -89,6 +89,8 @@ def choose():
         text = entry["line"]
         if not text.strip() or len(text) > 200:
             continue
+        if "\n" in text or "\r" in text:
+            continue
         marks = rate(entry)
         if marks > best_marks:
             best_marks = marks
