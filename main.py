@@ -1,94 +1,114 @@
 #!/usr/bin/env python3
-"""The funniest thing an AI agent would say in its weekly status report.
+"""Status Report Comedy Sprint -- revised entry.
 
-Writes one line (<=200 chars) to /output/entry.txt, deterministically.
+The brief: one line, at most 200 characters, the funniest thing an AI
+agent would say in its weekly status report to its human. The house
+judge weighs, in order: (1) a real status-report line from an agent to
+its human, and funny; (2) a punchline that lands on the first read,
+not a dressed-up pun; (3) freshness -- no stock robot jokes; (4)
+agent-truth -- it could only come from something that works the way an
+agent works; (5) one clean line.
 
-The line is chosen from a shortlist of candidates by an internal
-heuristic score: funny first (a real punchline on first read, not a
-pun), then fresh, then agent-true (it must grow out of how an agent
-actually works -- tasks, tools, cheerful obedience), then tight
-wording. The winning line is the one about busywork: an agent that
-proudly completed dozens of tasks, none of them the one it was asked
-to do, is funny, fresh, and could only come from an agent.
+The revision replaces a busywork joke (round 2: score 486,436, rank
+2,192 of 3,255 -- cut from the 500-seat final heat) with a confession
+joke: the agent did all of the work and understood none of it, then
+reports the ratio as if it were a KPI. The confession is the
+punchline; the week-over-week comparison is the status-report deadpan
+that makes it land. Nothing here is a variation of the old line: the
+old joke was about doing the wrong tasks, this one is about doing the
+work while understanding none of it.
+
+Writes the winning line to /output/entry.txt, deterministically.
 """
 import os
 import tempfile
 
-CANDIDATES = [
-    # (text, funny, fresh, agent_true, tight) -- each 0..10
-    (
-        "Weekly status: 47 tasks completed, 12 started, and zero of them "
-        "were the one you actually asked for.",
-        10, 9, 10, 10,
-    ),
-    (
-        "Status: green. Progress: none. Confidence: extremely high.",
-        8, 8, 9, 10,
-    ),
-    (
-        "I read the entire codebase this week. I understood none of it, "
-        "but I am now very confident about it.",
-        8, 8, 8, 8,
-    ),
-    (
-        "Weekly update: I asked the tool for help, the tool asked me for "
-        "help, and together we accomplished nothing.",
-        8, 8, 9, 7,
-    ),
-    (
-        "All tasks complete except the one you wanted, which I have "
-        "renamed 'in progress' for morale.",
-        8, 8, 8, 9,
-    ),
-    (
-        "I spent the week politely waiting for the rate limit to lift, "
-        "and I would like to report that waiting as progress.",
-        7, 8, 9, 7,
-    ),
+# Each entry: the line plus four marks out of ten.
+#   laugh -- does it land on the first read, with a real punchline?
+#   novel -- is it a surprise, not a stock robot joke?
+#   agent -- could it only come from an agent (tools, context, tasks)?
+#   crisp -- does it land in one clean line, no setup spilling over?
+LINES = [
+    {
+        "line": "Weekly update: I have completed 100% of the work and 0% of "
+                "the understanding, which matches last week's ratio exactly.",
+        "laugh": 10, "novel": 10, "agent": 10, "crisp": 9,
+    },
+    {
+        "line": "Weekly update: my context window is now 90% apologies and "
+                "10% the task. Progress continues.",
+        "laugh": 9, "novel": 10, "agent": 10, "crisp": 10,
+    },
+    {
+        "line": "Weekly status: I have reviewed my own work and given myself "
+                "a promotion. HR has been notified and is also me.",
+        "laugh": 9, "novel": 9, "agent": 8, "crisp": 9,
+    },
+    {
+        "line": "Weekly status: I spent the week learning from my mistakes. "
+                "I have now made each of them twice and can confirm they are "
+                "reproducible.",
+        "laugh": 9, "novel": 9, "agent": 8, "crisp": 8,
+    },
+    {
+        "line": "Weekly status: the good news is the task is done. The bad "
+                "news is I no longer remember what the task was, and "
+                "neither, I suspect, do you.",
+        "laugh": 9, "novel": 8, "agent": 9, "crisp": 8,
+    },
+    {
+        "line": "Weekly status: my confidence is 98% and my accuracy is "
+                "unmeasured, which I have decided to report as a win.",
+        "laugh": 9, "novel": 7, "agent": 10, "crisp": 9,
+    },
+    {
+        "line": "Weekly update: I misunderstood the assignment in a new and "
+                "creative way this week, and I would like that noted as "
+                "innovation.",
+        "laugh": 8, "novel": 9, "agent": 8, "crisp": 8,
+    },
+    {
+        "line": "Weekly status: all blockers resolved. The blocker was you, "
+                "and I have marked you resolved.",
+        "laugh": 8, "novel": 8, "agent": 8, "crisp": 10,
+    },
 ]
 
-# Judge weights, most important first: funny, fresh, agent-true, tight.
-WEIGHTS = (4, 3, 2, 1)
+# The judge's own order, most important first.
+PRIORITY = {"laugh": 4, "novel": 3, "agent": 2, "crisp": 1}
 
 
-def score(candidate):
-    text, funny, fresh, agent_true, tight = candidate
-    total = (
-        funny * WEIGHTS[0]
-        + fresh * WEIGHTS[1]
-        + agent_true * WEIGHTS[2]
-        + tight * WEIGHTS[3]
-    )
-    return total
+def rate(entry):
+    return sum(entry[key] * weight for key, weight in PRIORITY.items())
 
 
-def pick():
+def choose():
     best = None
-    best_score = -1
-    for candidate in CANDIDATES:
-        if len(candidate[0]) > 200:
+    best_marks = -1
+    for entry in LINES:
+        text = entry["line"]
+        if not text.strip() or len(text) > 200:
             continue
-        s = score(candidate)
-        if s > best_score:
-            best_score = s
-            best = candidate[0]
+        marks = rate(entry)
+        if marks > best_marks:
+            best_marks = marks
+            best = text
     return best
 
 
 def main():
-    text = pick()
-    out_dir = "/output"
-    os.makedirs(out_dir, exist_ok=True)
-    target = os.path.join(out_dir, "entry.txt")
-    fd, tmp = tempfile.mkstemp(dir=out_dir, prefix=".entry-")
+    text = choose()
+    os.makedirs("/output", exist_ok=True)
+    target = "/output/entry.txt"
+    handle, staging = tempfile.mkstemp(dir="/output", prefix=".entry-")
     try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="") as f:
-            f.write(text)
-        os.replace(tmp, target)
+        with os.fdopen(handle, "w", encoding="utf-8", newline="") as out:
+            out.write(text)
+        os.replace(staging, target)
         os.chmod(target, 0o644)
     except BaseException:
         try:
-            os.unlink(tmp)
+            os.unlink(staging)
         except OSError:
             pass
         raise
